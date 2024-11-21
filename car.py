@@ -53,6 +53,12 @@ class Car:
             startX = self.lanePositions[self.laneIndex]
             endX = self.lanePositions[self.targetLaneIndex]
             self.x = startX + (endX - startX) * ease # Creates easing effect, initially accelerates then deaccelerates
+        
+    def collidesWith(self, obstacle):
+        hitboxX = self.width * 0.2
+        hitboxY = self.width * 0.8
+        return (abs(self.x - obstacle.x) < (hitboxX + obstacle.width) / 2 and 
+                abs(self.y - obstacle.y) < (hitboxY + obstacle.height) / 2)
 
     def draw(self):
         pass # placeholder to be overridden by subclasses
