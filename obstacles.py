@@ -46,18 +46,18 @@ class Truck(Obstacle):
     def __init__(self, app, x, y):
         width = app.carWidth
         height = app.carHeight
-        super().__init__(app, x, y, width, height, 10, 'Truck')
+        super().__init__(app, x, y, width, height, 5, 'Truck')
 
 class Sedan(Obstacle):
     def __init__(self, app, x, y):
         width = app.carWidth
         height = app.carHeight
-        super().__init__(app, x, y, width, height, 10, 'Sedan')
+        super().__init__(app, x, y, width, height, 5, 'Sedan')
 
 class Kosbie(Obstacle):
     def __init__(self, app, x, y):
         width = app.carWidth * 0.5
         height = app.carWidth * 0.5
-        super().__init__(app, x, y, width, height, 20, 'Kosbie')
+        super().__init__(app, x, y, width, height, 10, 'Kosbie')
 
 
