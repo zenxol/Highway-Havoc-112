@@ -22,6 +22,7 @@ def onAppStart(app):
     # Image addresses are open to use from opengameart.org
     lightGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/grass_17.png'
     darkGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tileable_grass.png'
+    waterURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tex_Water_thumb.jpg'
     highwayURL = 'https://opengameart.org/sites/default/files/styles/medium/public/Toon%20Road%20Texture.png'
     railURL = 'https://opengameart.org/sites/default/files/styles/medium/public/Elevator%20Rail_0.png'
     coinURL = 'https://opengameart.org/sites/default/files/styles/medium/public/coin320000.png'
@@ -29,6 +30,7 @@ def onAppStart(app):
     # Initally background is set to one grass color, may change to checkered pattern once game is developed
     lightGrass = loadPilImage(lightGrassURL)
     darkGrass = loadPilImage(darkGrassURL)
+    water = loadPilImage(waterURL)
     highway = loadPilImage(highwayURL)
     # Highway initially imported horizontally, thus rotation is needed
     highway = highway.rotate(90)
@@ -36,12 +38,14 @@ def onAppStart(app):
     coin = loadPilImage(coinURL)
     app.lightGrass = CMUImage(lightGrass)
     app.darkGrass = CMUImage(darkGrass)
+    app.water = CMUImage(water)
     app.highway = CMUImage(highway)
     app.rail = CMUImage(rail)
     app.baseCoin = CMUImage(coin)
     
     # GrassSize is high, allowing for less images to be generated: increase in frame rates
     app.grassSize = 65
+    app.waterSize = 65
     app.railWidth = 7
     app.rows = app.height // app.grassSize
     app.cols = app.width // app.grassSize
@@ -91,6 +95,14 @@ def onAppStart(app):
     # if it is a screen, change name to ...screen for readability
     gameOverImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\gameOver.png")
     app.gameOverScreen = CMUImage(gameOverImage)
+
+    helpImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\help.png")
+    app.showHelp = False
+    app.help = CMUImage(helpImage)
+
+    leaderboardImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\leaderboard.png")
+    app.showLeaderboard = False
+    app.leaderboard = CMUImage(leaderboardImage)
     # Variable to prevent unintended clicks
     app.lastClickTime = 0
 
@@ -117,6 +129,16 @@ def onAppStart(app):
     app.gameStarted = False
 
     app.gameOver = False
+
+    app.backgroundTypes = ['lightGrass', 'darkGrass', 'water']
+    app.currentBackgroundIndex = 0
+    app.lastBackgroundChangeTime = time.time()
+    app.backgroundChangeInterval = 30
+
+    app.backgroundY = 0
+    app.backgroundScrollSpeed = app.scrollSpeed
+
+    app.top5Scores = []
     
 
 def resetGame(app):
@@ -147,6 +169,10 @@ def resetGame(app):
     app.gameStarted = False
 
     app.gameOver = False
+    app.currentBackgroundIndex = 0
+    app.lastBackgroundChangeTime = time.time()
+    app.backgroundY = 0
+    app.backgroundScrollSpeed = app.scrollSpeed
 
 # Function to spawn obstacles
 def spawnObstacles(app):
@@ -255,6 +281,10 @@ def updateGameState(app, currentTime):
     app.highwayY += app.scrollSpeed
     if app.highwayY >= 600:
         app.highwayY = 0
+    
+    app.backgroundY += app.backgroundScrollSpeed
+    if app.backgroundY >= app.grassSize:
+        app.backgroundY = 0
 
     # Increases difficulty factor and scrollspeed
     if currentTime - app.lastDifficultyIncreaseTime >= app.difficultyIncreaseInterval:
@@ -284,10 +314,12 @@ def updateObstaclesAndCollisions(app, currentTime):
                 explosion = Explosion(app.car.x, app.car.y)
                 app.explosions.append(explosion)
                 app.explosionActive = True
+                updateTop5Scores(app)
             # Obstacles are only kept when they are within game frame, once pass app.height, they disappear
             if obstacle.y <= app.height:
                 newObstacles.append((obstacle, spawnTime))
         app.obstacles = newObstacles
+        cycleBackground(app, currentTime)
 
     spawnInterval = getSpawnInterval(app)
     # Spawning at most two obstacles at the same time
@@ -331,6 +363,14 @@ def updateScore(app):
         app.currentScoreCount += app.difficultyFactor * 0.5
     elif app.gameMode == 'Hard':
         app.currentScoreCount += app.difficultyFactor * 0.6
+    
+
+def updateTop5Scores(app):
+    score = app.currentScoreCount
+    if len(app.top5Scores) < 5 or score > min(app.top5Scores):
+        app.top5Scores.append(score)
+        app.top5Scores.sort(reverse=True)
+        app.top5Scores = app.top5Scores[:5]
 
 def handleCountdown(app, currentTime):
     elapsedTime = currentTime - app.countdownStartTime
@@ -364,12 +404,22 @@ def onMousePress(app, mouseX, mouseY):
         app.soundtrack.pause()
 
     if app.showStartMenu:
-        if 120 <= mouseX <= 280 and 200 <= mouseY <= 230:
+        if 120 <= mouseX <= 280 and 210 <= mouseY <= 250:
             if app.clickSfxOn:
                 app.clickSfx.play()
             app.showStartMenu = False
             # Changes screen to select game mode screen
             app.showSelectMode = True
+        elif 120 <= mouseX <= 280 and 270 <= mouseY <= 310:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.showStartMenu = False
+            app.showHelp = True
+        elif 120 <= mouseX <= 280 and 330 <= mouseY <= 380:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.showStartMenu = False
+            app.showLeaderboard = True
         # Toggles music / sound effect off and on
         elif 310 <= mouseX <= 355 and 235 <= mouseY <= 290:
             app.soundtrackOn = not app.soundtrackOn
@@ -379,7 +429,19 @@ def onMousePress(app, mouseX, mouseY):
                     app.clickSfx.play()
             else:
                 app.soundtrack.pause()
-    
+    elif app.showHelp:
+        if 310 <= mouseX <= 400 and 530 <= mouseY <= 600:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.showHelp = False
+            app.showStartMenu = True
+    elif app.showLeaderboard:
+        if 310 <= mouseX <= 400 and 530 <= mouseY <= 600:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.showLeaderboard = False
+            app.showStartMenu = True
+
     elif app.showSelectMode:
         # Sets game mode to easy
         if 60 <= mouseX <= 300 and 175 <= mouseY <= 290:
@@ -403,7 +465,37 @@ def onMousePress(app, mouseX, mouseY):
             app.gameMode = 'Hard'
             resetGame(app)  
     if app.gameOver:
-        pass
+        if 100 <= mouseX <= 300 and 305 <= mouseY <= 345:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            resetGame(app)
+        elif 100 <= mouseX <= 300 and 420 <= mouseY <= 460:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.gameScreen = None
+            app.gameOn = None
+            app.explosionActive = None
+            app.showStartMenu = True
+            app.gameMode = None
+            app.gameStarted = False
+            app.gameOver = False
+        elif 100 <= mouseX <= 300 and 355 <= mouseY <= 400:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.gameScreen = None
+            app.gameOn = None
+            app.explosionActive = None
+            app.showLeaderboard = True
+            app.gameMode = None
+            app.gameStarted = False
+            app.gameOver = False
+
+        
+
+def cycleBackground(app, currentTime):
+    if currentTime - app.lastBackgroundChangeTime >= app.backgroundChangeInterval:
+        app.currentBackgroundIndex = (app.currentBackgroundIndex + 1) % len(app.backgroundTypes)
+        app.lastBackgroundChangeTime = currentTime
 
                   
 # Function to handle key press events
@@ -414,6 +506,10 @@ def onKeyPress(app, key):
             app.car.moveLeft()
         elif key == 'right':
             app.car.moveRight()
+        elif key == 'a':
+            app.car.moveLeft()
+        elif key == 'd':
+            app.car.moveRight()
     if key == 'r':
         app.scrollSpeed = 0
         resetGame(app)
@@ -423,16 +519,28 @@ def redrawAll(app):
     # Draws game screen based on what is currently true
     if app.showStartMenu:
         drawImage(app.startMenu, 0, 0, width=app.width, height=app.height)
+    elif app.showHelp:
+        drawImage(app.help, 0, 0, width=app.width, height=app.height)
     elif app.showSelectMode:
         drawImage(app.selectMode, 0, 0, width=app.width, height=app.height)
+    elif app.showLeaderboard:
+        drawImage(app.leaderboard, 0, 0, width=app.width, height=app.height)
+        drawTop5Scores(app)
     elif app.gameScreen:
+        currentBackground = app.backgroundTypes[app.currentBackgroundIndex]
         # Draws grass background, top to bottom, only on the left and right side of the highway
-        for row in range(app.rows+1):
-            y = row * app.grassSize
-            drawImage(app.darkGrass, 0, y, width=app.grassSize, height=app.grassSize)
-        for row in range(app.rows+1):
-            y = row * app.grassSize
-            drawImage(app.darkGrass, 335, y, width=app.grassSize, height=app.grassSize)
+        for row in range(-1, app.rows+1):
+            y = row * app.grassSize + app.backgroundY
+            if currentBackground == 'lightGrass':
+                drawImage(app.lightGrass, 0, y, width=app.grassSize, height=app.grassSize)
+                drawImage(app.lightGrass, 335, y, width=app.grassSize, height=app.grassSize)
+            elif currentBackground == 'darkGrass':
+                drawImage(app.darkGrass, 0, y, width=app.grassSize, height=app.grassSize)
+                drawImage(app.darkGrass, 335, y, width=app.grassSize, height=app.grassSize)
+            else:
+                drawImage(app.water, 0, y, width=app.waterSize, height=app.waterSize)
+                drawImage(app.water, 335, y, width=app.waterSize, height=app.waterSize)
+
 
         # Adds sides of the road
         drawRect(65, 0, 15, 600, fill=rgb(191, 191, 191))
@@ -473,10 +581,13 @@ def redrawAll(app):
         drawLabel(rounded(app.currentScoreCount), 360, 50, size=20, bold=True, fill='white', border='black', borderWidth=1, font='riffic', align='center')
 
         if app.gameOver and not app.explosionActive:
+            # drawRect(200, 125, 350, 80, fill='lightgreen', opacity=90, align='center')
             drawImage(app.gameOverScreen, 200, 350, width=350, height=450, align='center')
 
-        
-
+def drawTop5Scores(app):
+    for i in range(len(app.top5Scores)):
+        drawLabel(rounded(app.top5Scores[i]), 120, i * 68 + 165, size=45, bold=True, border='black', borderWidth=2, fill='white', font='orbitron' ) 
+    
 def main():
     runApp(width=400, height=600)
 main()
