@@ -15,6 +15,7 @@ class Coin:
             pil_image = loadPilImage(coinUrl)
             cls.image = CMUImage(pil_image)
 
+    # Initializes object paraments of coin object
     def __init__(self, app, x, y):
         self.app = app
         self.x = x
@@ -24,6 +25,7 @@ class Coin:
         self.speed = 5
         Coin.preloadImages()
 
+    # Coin moves similar to obstacles
     def move(self):
         self.y += self.speed
     
