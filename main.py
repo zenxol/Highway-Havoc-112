@@ -1,13 +1,14 @@
 from cmu_graphics import*
 from PIL import Image
 from urllib.request import urlopen
-from car import Car, RaceCar
+from car import Car, RaceCar, RaceCarV2, SedanCar, TruckCar
 import time
 import random
 from obstacles import Obstacle, Truck, Sedan, Kosbie
 from explosion import Explosion
 from warning import Warning
 from coin import Coin 
+from mile import Sign
 
 
 def loadPilImage(url):
@@ -19,6 +20,7 @@ def onAppStart(app):
     Explosion.preloadImages()
     Warning.preloadImages()
     Coin.preloadImages()
+    Sign.preloadImages()
     # Image addresses are open to use from opengameart.org
     lightGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/grass_17.png'
     darkGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tileable_grass.png'
@@ -27,7 +29,7 @@ def onAppStart(app):
     railURL = 'https://opengameart.org/sites/default/files/styles/medium/public/Elevator%20Rail_0.png'
     coinURL = 'https://opengameart.org/sites/default/files/styles/medium/public/coin320000.png'
 
-    # Initally background is set to one grass color, may change to checkered pattern once game is developed
+    # Initally background is set to light grass color, background is cycled every 30ish seconds
     lightGrass = loadPilImage(lightGrassURL)
     darkGrass = loadPilImage(darkGrassURL)
     water = loadPilImage(waterURL)
@@ -59,26 +61,29 @@ def onAppStart(app):
     # Car dimensions will be the same, regardless of instances of Car class
     app.carWidth = 110
     app.carHeight = 130
-    app.car = RaceCar(app)
+    app.car = None
 
-    # Initialize lists for obstacles, explosions, warnings, and coins
+    # Initialize lists for obstacles, explosions, warnings, coins, and mile signs
     app.obstacles = []
     app.explosions = []
     app.warnings = []
     app.coins = []
+    app.signs = []
 
     # Set up game state variables
-    app.gameScreen = None
-    app.gameOn = None
+    app.gameScreen = None # Screen of the game is visible
+    app.gameOn = None # Indicate when game is in active playable state
+    app.gameStarted = False # Marks initial start of game session, prevents multiplie intializations of game elements
+    app.gameOver = False # Indicate once user crashes 
     app.explosionActive = None
 
     # Set up timing variables for randomly generated obstacles and warning signs
     app.obstacleDelay = 5 # temporary change
-    app.coinDelay = 5
+    app.coinDelay = 5 # delay before coins / obstacles start spawning
     app.gameStartTime = time.time()
     app.lastObstacleTime = 0
     app.lastMultipleTime = 0
-    app.warningDuration = 1
+    app.warningDuration = 1 
     app.lastCoinTime = 0
     app.coinSpawnInterval = 6
     # Define all three possible x lane positions
@@ -86,182 +91,135 @@ def onAppStart(app):
     
     # Images for different screens
     startMenuImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\startMenu.png")
-    app.showStartMenu = True
+    app.showStartMenu = True # Game starts by showing start menu 
     app.startMenu = CMUImage(startMenuImage)
     app.gameMode = None
     selectModeImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\modeSelection.png")
     app.showSelectMode = False
     app.selectMode = CMUImage(selectModeImage)
-    # if it is a screen, change name to ...screen for readability
+    # if it is a screen, later change name to ...screen for readability
     gameOverImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\gameOver.png")
     app.gameOverScreen = CMUImage(gameOverImage)
-
     helpImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\help.png")
     app.showHelp = False
     app.help = CMUImage(helpImage)
-
     leaderboardImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\leaderboard.png")
     app.showLeaderboard = False
     app.leaderboard = CMUImage(leaderboardImage)
+    shopButtonImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\shopButton.png")
+    app.shopButton = CMUImage(shopButtonImage) # shopButton is always shown with start menu
+
     # Variable to prevent unintended clicks
     app.lastClickTime = 0
 
     # Background music and sound effects
     app.clickSfxOn = True
     app.soundtrackOn = True
-    soundtrack = 'file:///C:/Users/zenho/Downloads/uZMCuXBGF1zWSljG53C9AECiD9EkgQYJ.mp3'
+    soundtrack = 'https://opengameart.org/sites/default/files/race.mp3'
     app.soundtrack = Sound(soundtrack)
-    app.soundtrack.play(loop=True)
-    clickSfx = 'file:///C:/Users/zenho/Downloads/button-pressed-38129.mp3'
-    app.clickSfx = Sound(clickSfx)    
+    app.soundtrack.play(loop=True) # Initially plays soundtrack when app starts
+    clickSfx = 'https://opengameart.org/sites/default/files/Toom%20Click.wav'
+    app.clickSfx = Sound(clickSfx)  
+    coinSfx = 'https://opengameart.org/sites/default/files/Picked%20Coin%20Echo.wav' 
+    app.coinSfx = Sound(coinSfx) 
+    explosionSfx = 'https://opengameart.org/sites/default/files/DeathFlash.flac'
+    app.explosionSfx = Sound(explosionSfx)
+    countdownSfx = 'https://opengameart.org/sites/default/files/3%202%201%20go_noise-removal_equalized.wav'
+    app.countdownSfx = Sound(countdownSfx)
+    engineSfx = 'file:///C:/Users/zenho/Downloads/engine.mp3'
+    app.engineSfx = Sound(engineSfx) # Fix engine sfx, after resetting loop, it temporarily cuts off 
 
     # Initiates variables that dynamically changes game difficulty as game progresses
     app.difficultyFactor = 1
     app.difficultyIncreaseInterval = 5
     app.lastDifficultyIncreaseTime = time.time()
 
+    # Keeps track of current number values when game starts
     app.currentCoinCount = 0
     app.currentScoreCount = 0
+    app.currentMileCount = 0
 
+    # Initializes countdown variables to tell user when to start
     app.countdownActive = True
     app.countdownText = '3'
     app.countdownStartTime = time.time()
-    app.gameStarted = False
 
-    app.gameOver = False
-
+    # Background cycle variables
     app.backgroundTypes = ['lightGrass', 'darkGrass', 'water']
     app.currentBackgroundIndex = 0
     app.lastBackgroundChangeTime = time.time()
     app.backgroundChangeInterval = 30
 
+    # Creates a dynamic background effect
     app.backgroundY = 0
     app.backgroundScrollSpeed = app.scrollSpeed
 
+    # Stores highest 5 scores in the leaderboard
     app.top5Scores = []
     
-
 def resetGame(app):
+    # Resets game factors to default parameters
     app.scrollSpeed = 5
     app.difficultyFactor = 1
+
+    # Makes sure all unwanted objects no longer exist before game starts
     app.explosions.clear()
     app.coins.clear()
     app.warnings.clear()
+    app.signs.clear()
 
+    # Creates car object, will change later to where user can choose what car to select
     app.car = RaceCar(app)
-    # Set up game state variables
+
+    # Resets up game state variables
     app.gameScreen = True
     app.explosionActive = True
+    app.gameStarted = False
+    app.gameOver = False
 
-    # Set up timing variables for randomly generated obstacles and warning signs
+    # Resets up timing variables for randomly generated obstacles and warning signs
     app.gameStartTime = time.time()
     app.lastObstacleTime = 0
     app.lastMultipleTime = 0
     app.warningDuration = 1
     app.obstacleDelay = 5
 
+    # Resets all current number values to 0
     app.currentCoinCount = 0
     app.currentScoreCount = 0
+    app.currentMileCount = 0
 
+    # Reset countdown variables
     app.countdownActive = True
     app.countdownText = '3'
     app.countdownStartTime = time.time()
-    app.gameStarted = False
 
-    app.gameOver = False
+    # Resets background to default
     app.currentBackgroundIndex = 0
     app.lastBackgroundChangeTime = time.time()
     app.backgroundY = 0
     app.backgroundScrollSpeed = app.scrollSpeed
 
-# Function to spawn obstacles
-def spawnObstacles(app):
-    # Randomly chooses obstacle type and lane to spawn at
-    if app.gameOn:
-        obstacleType = random.choice([Truck, Sedan, Kosbie])
-        randomIndex = random.randint(0, 2)
-        x = app.lanePositions[randomIndex]
-        # Starts off screen in order to avoid overlapping with warning signs
-        y = -100
-        newObstacle = obstacleType(app, x, y)
-        
-        # Obstacles have differen speeds based on game mode
-        if app.gameMode == 'Easy':
-            newObstacle.speed += (app.difficultyFactor * 0.25)
-        elif app.gameMode == 'Medium':
-            newObstacle.speed += app.difficultyFactor
-        elif app.gameMode == 'Hard':
-            newObstacle.speed += (app.difficultyFactor * 1.5)
-        
-        # Checks for overlap, doesnt spawn if new obstacle overlaps
-        if not checkOverlap(newObstacle, [obs for obs, _ in app.obstacles]):
-            # Warning should have same lane positions as incoming object
-            warning = Warning(x, 60)
-            currentTime = time.time()
-            # Adds objects to list as a tuple to track the related times (immutable)
-            app.warnings.append((warning, currentTime))
-            app.obstacles.append((newObstacle, currentTime))
-            app.lastObstacleTime = currentTime
-    
-# Function to prevent obstacles from spawning on top of each other
-def checkOverlap(new, existing):
-    for obstacle in existing:
-        # Obstacle has to be in a tuple that stores time 
-        if isinstance(obstacle, tuple):
-            obstacle = obstacle[0]
-        # If positions of new obstacle is equal to any existing obstacle positions, then they overlap
-        if (abs(new.x - obstacle.x) < (new.width + obstacle.width) / 2 and
-            abs(new.y - obstacle.y) < (new.height + obstacle.height) / 2):
-            return True
-    return False
-
-# Function to spawn multiple obstacles
-def spawnMultipleObstacles(app):
-    for _ in range(3):
-        spawnObstacles(app)
-
-# Function to handle explosions when car collides with obstacle
-def handleExplosion(app):
-    # ExplosionActive is initially true since explosions should occur only once
-    if app.explosionActive:
-        for explosion in app.explosions:
-            # Update explosion animation
-            explosion.update()
-            # Remove all obstacles and car objects once explosion is max size
-            if explosion.size == explosion.maxSize:
-                app.car = None
-                app.obstacles.clear()
-                app.warnings.clear()
-                app.coins.clear()
-                app.gameOver = True
-                break    
-        app.explosions = [exp for exp in app.explosions if exp.isActive]
-        if not app.explosions:
-            app.explosionActive = False
-
-# Function to redraw the game screen
-
-def spawnCoin(app):
-    if app.gameOn:
-        randomIndex = random.randint(0, 2)
-        x = app.lanePositions[randomIndex]
-        y = -50
-        newCoin = Coin(app, x, y)
-        app.coins.append(newCoin)
-    
 # Function called on each step of the game
 def onStep(app):
     currentTime = time.time()
 
+    # Show countdown before objects can spawn/move
     if app.countdownActive:
         handleCountdown(app, currentTime)
         return
-    # Once player crashes, set game mode off and stop highway scrolling
+    
+    # Once player crashes, set game playable to inactive and stop highway scrolling
     if not app.gameOn:
         app.scrollSpeed = 0
+        app.engineSfx.pause()
         handleExplosion(app)
         return
+    else:
+        # Play engine audio once car appears to be moving (fix the audio later)
+        app.engineSfx.play(loop=True)
     
+    # Start game once countdown ends
     if not app.gameStarted:
         app.gameStartTime = currentTime
         app.gameStarted = True
@@ -270,9 +228,50 @@ def onStep(app):
     updateObstaclesAndCollisions(app, currentTime)
     updateCoins(app, currentTime)
     updateScore(app)
+    updateMileSign(app)
 
-    
+# Function creates a countdown effect, notifying the user when they can steer their car
+def handleCountdown(app, currentTime):
+    elapsedTime = currentTime - app.countdownStartTime
+    if elapsedTime < 0.1:
+        # Play countdown voice as soon as countdown starts
+        app.countdownSfx.play()
+    elif elapsedTime < 1: 
+        app.countdownText = '3'
+    elif elapsedTime < 2:
+        app.countdownText = '2'
+    elif elapsedTime < 3:
+        app.countdownText = '1'
+    elif elapsedTime < 4:
+        app.countdownText = 'GO'
+    elif app.gameScreen:
+        # Changes to game ready variables
+        app.countdownActive = False
+        app.gameOn = True
+        app.gameStartTime = currentTime
 
+# Function to handle explosions when car collides with obstacle
+def handleExplosion(app):
+    # ExplosionActive is initially true since explosions should occur only once
+    if app.explosionActive:
+        for explosion in app.explosions:
+            # Update explosion animation
+            explosion.update()
+            # Remove all objects once explosion is max size
+            if explosion.size == explosion.maxSize:
+                app.car = None
+                app.obstacles.clear()
+                app.warnings.clear()
+                app.coins.clear()
+                app.signs.clear()
+                app.gameOver = True
+                break    
+        app.explosions = [exp for exp in app.explosions if exp.isActive]
+        # Explosion is inactive once there are no more explosions
+        if not app.explosions:
+            app.explosionActive = False
+
+# Updates state of the game: car, background, warnings, and difficulty levels
 def updateGameState(app, currentTime):
     # Update player car position and lane-switching animation
     if app.car != None:
@@ -297,6 +296,16 @@ def updateGameState(app, currentTime):
         warning.update()
     app.warnings = [(w, t) for w, t in app.warnings if currentTime - t < app.warningDuration]
 
+    if app.gameOn:
+        cycleBackground(app, currentTime)
+
+# Function cycles background every 30 seconds
+def cycleBackground(app, currentTime):
+    if currentTime - app.lastBackgroundChangeTime >= app.backgroundChangeInterval:
+        app.currentBackgroundIndex = (app.currentBackgroundIndex + 1) % len(app.backgroundTypes)
+        app.lastBackgroundChangeTime = currentTime
+
+# Function updates obstacle spawn and collision logic and scores
 def updateObstaclesAndCollisions(app, currentTime):
     # Wait for initial obstacle delay
     if not app.gameStarted or currentTime - app.gameStartTime < app.obstacleDelay:
@@ -314,12 +323,13 @@ def updateObstaclesAndCollisions(app, currentTime):
                 explosion = Explosion(app.car.x, app.car.y)
                 app.explosions.append(explosion)
                 app.explosionActive = True
+                app.explosionSfx.play()
+                # Update scores once crash is detected
                 updateTop5Scores(app)
             # Obstacles are only kept when they are within game frame, once pass app.height, they disappear
             if obstacle.y <= app.height:
                 newObstacles.append((obstacle, spawnTime))
         app.obstacles = newObstacles
-        cycleBackground(app, currentTime)
 
     spawnInterval = getSpawnInterval(app)
     # Spawning at most two obstacles at the same time
@@ -330,7 +340,69 @@ def updateObstaclesAndCollisions(app, currentTime):
         spawnObstacles(app)
         app.lastMultipleTime = currentTime
 
+# Function updates the 5 highest scores to display in leaderboards
+def updateTop5Scores(app):
+    score = app.currentScoreCount
+    # Might want to improve efficiency, it is currently O(n^2)
+    if len(app.top5Scores) < 5 or score > min(app.top5Scores):
+        app.top5Scores.append(score)
+        # Sort scores from highest to lowest
+        app.top5Scores.sort(reverse=True)
+        app.top5Scores = app.top5Scores[:5]
+
+# Function obtains spawn interval in seconds based on game mode difficulty
+def getSpawnInterval(app):
+    if app.gameMode == 'Easy':
+        return max(2, 7 / app.difficultyFactor)
+    elif app.gameMode == 'Medium':
+        return max(1, 5 / app.difficultyFactor)
+    elif app.gameMode == 'Hard':
+        return max(0.5, 4 / app.difficultyFactor)
+
+# Function to spawn obstacles
+def spawnObstacles(app):
+    # Randomly chooses obstacle type and lane to spawn at
+    if app.gameOn:
+        obstacleType = random.choice([Truck, Sedan, Kosbie])
+        randomIndex = random.randint(0, 2)
+        x = app.lanePositions[randomIndex]
+        # Starts off screen in order to avoid overlapping with warning signs
+        y = -100
+        newObstacle = obstacleType(app, x, y)
+        
+        # Obstacles have different speeds based on game mode
+        if app.gameMode == 'Easy':
+            newObstacle.speed += (app.difficultyFactor * 0.25)
+        elif app.gameMode == 'Medium':
+            newObstacle.speed += app.difficultyFactor
+        elif app.gameMode == 'Hard':
+            newObstacle.speed += (app.difficultyFactor * 1.5)
+        
+        # Checks for overlap, doesnt spawn if new obstacle overlaps existing obstacle
+        if not checkOverlap(newObstacle, [obs for obs, _ in app.obstacles]):
+            # Warning should have same lane positions as incoming object
+            warning = Warning(x, 60)
+            currentTime = time.time()
+            # Adds objects to list as a tuple to track the related times (immutable)
+            app.warnings.append((warning, currentTime))
+            app.obstacles.append((newObstacle, currentTime))
+            app.lastObstacleTime = currentTime
+    
+# Function to prevent obstacles from spawning on top of each other
+def checkOverlap(new, existing):
+    for obstacle in existing:
+        # Obstacle has to be in a tuple that stores time 
+        if isinstance(obstacle, tuple):
+            obstacle = obstacle[0]
+        # If positions of new obstacle is equal to any existing obstacle positions, then they overlap
+        if (abs(new.x - obstacle.x) < (new.width + obstacle.width) / 2 and
+            abs(new.y - obstacle.y) < (new.height + obstacle.height) / 2):
+            return True
+    return False
+
+# Function updates coin spawn logic
 def updateCoins(app, currentTime):
+    # Create initial delay, similar to obstacle delay
     if currentTime - app.gameStartTime < app.coinDelay:
         return
     if app.gameOn:
@@ -339,54 +411,54 @@ def updateCoins(app, currentTime):
             coin.move()
             if coin.y <= app.height:
                 if app.car.collidesWith(coin):
+                    app.coinSfx.play()
+                    # Increases coin count each time coin is collected
                     app.currentCoinCount += 1
                 else:
                     newCoins.append(coin)
         app.coins = newCoins
+    # Spawns coins over a constant interval
     if currentTime - app.lastCoinTime >= app.coinSpawnInterval:
         spawnCoin(app)
         app.lastCoinTime = currentTime
-    
-def getSpawnInterval(app):
-    # Obstacle spawn interval based on game mode difficulty
-    if app.gameMode == 'Easy':
-        return max(2, 7 / app.difficultyFactor)
-    elif app.gameMode == 'Medium':
-        return max(1, 5 / app.difficultyFactor)
-    elif app.gameMode == 'Hard':
-        return max(0.5, 4 / app.difficultyFactor)
 
+# Function generates coins in random lane
+def spawnCoin(app):
+    if app.gameOn:
+        randomIndex = random.randint(0, 2)
+        x = app.lanePositions[randomIndex]
+        y = -50
+        newCoin = Coin(app, x, y)
+        app.coins.append(newCoin)
+
+# Function updates currentScoreCount each time new game is started   
 def updateScore(app):
+    # Based off difficulty, score has a multiplier
     if app.gameMode == 'Easy':
         app.currentScoreCount += app.difficultyFactor * 0.25
     elif app.gameMode == 'Medium':
         app.currentScoreCount += app.difficultyFactor * 0.5
     elif app.gameMode == 'Hard':
         app.currentScoreCount += app.difficultyFactor * 0.6
-    
 
-def updateTop5Scores(app):
-    score = app.currentScoreCount
-    if len(app.top5Scores) < 5 or score > min(app.top5Scores):
-        app.top5Scores.append(score)
-        app.top5Scores.sort(reverse=True)
-        app.top5Scores = app.top5Scores[:5]
+# Function updates a mile sign that appears and increases every 1000 points  
+def updateMileSign(app):
+    if app.gameOn:
+        x = 30
+        y = 0
+        # Mile starts at 0
+        currentMile = int(app.currentScoreCount) // 1000
+        while app.currentMileCount < currentMile:
+            app.currentMileCount += 1
+            # Current mile sign is displayed every 1000 points is reached
+            newSign = Sign(app, x, y, app.scrollSpeed / 3)
+            app.signs.append(newSign)
 
-def handleCountdown(app, currentTime):
-    elapsedTime = currentTime - app.countdownStartTime
-    if elapsedTime < 1:
-        app.countdownText = '3'
-    elif elapsedTime < 2:
-        app.countdownText = '2'
-    elif elapsedTime < 3:
-        app.countdownText = '1'
-    elif elapsedTime < 4:
-        app.countdownText = 'GO'
-    elif app.gameScreen:
-        app.countdownActive = False
-        app.gameOn = True
-        app.gameStartTime = currentTime
-
+        for sign in app.signs:
+            sign.move()
+            if sign.y > app.height:
+                # Remove sign once off screen
+                app.signs.remove(sign)
 
 # Function to handle mouse press events
 # A click sound effect is played every time a button is click (clickSfx has to toggle on)          
@@ -403,6 +475,7 @@ def onMousePress(app, mouseX, mouseY):
     else:
         app.soundtrack.pause()
 
+    # Start menu mouse logic
     if app.showStartMenu:
         if 120 <= mouseX <= 280 and 210 <= mouseY <= 250:
             if app.clickSfxOn:
@@ -414,11 +487,13 @@ def onMousePress(app, mouseX, mouseY):
             if app.clickSfxOn:
                 app.clickSfx.play()
             app.showStartMenu = False
+            # Changes screen to help screen
             app.showHelp = True
         elif 120 <= mouseX <= 280 and 330 <= mouseY <= 380:
             if app.clickSfxOn:
                 app.clickSfx.play()
             app.showStartMenu = False
+            # Changes screen to leaderboard screen
             app.showLeaderboard = True
         # Toggles music / sound effect off and on
         elif 310 <= mouseX <= 355 and 235 <= mouseY <= 290:
@@ -427,21 +502,28 @@ def onMousePress(app, mouseX, mouseY):
                 app.soundtrack.play(loop=True)
                 if app.clickSfxOn:
                     app.clickSfx.play()
+                app.clickSfxOn = True
             else:
+                app.clickSfxOn = False
                 app.soundtrack.pause()
+    # Help screen logic
     elif app.showHelp:
         if 310 <= mouseX <= 400 and 530 <= mouseY <= 600:
             if app.clickSfxOn:
                 app.clickSfx.play()
             app.showHelp = False
+            # Switches back to start menu
             app.showStartMenu = True
+    # Leaderboard screen logic
     elif app.showLeaderboard:
         if 310 <= mouseX <= 400 and 530 <= mouseY <= 600:
             if app.clickSfxOn:
                 app.clickSfx.play()
             app.showLeaderboard = False
+            # Switches back to start menu
             app.showStartMenu = True
 
+    # Select game mode screen logic, then goes to gamescreen
     elif app.showSelectMode:
         # Sets game mode to easy
         if 60 <= mouseX <= 300 and 175 <= mouseY <= 290:
@@ -464,11 +546,14 @@ def onMousePress(app, mouseX, mouseY):
             app.showSelectMode = False
             app.gameMode = 'Hard'
             resetGame(app)  
-    if app.gameOver:
+    # Game over screen logic
+    elif app.gameOver:
+        # Restart button logic
         if 100 <= mouseX <= 300 and 305 <= mouseY <= 345:
             if app.clickSfxOn:
                 app.clickSfx.play()
             resetGame(app)
+        # Home screen logic, switches back to on app start variables
         elif 100 <= mouseX <= 300 and 420 <= mouseY <= 460:
             if app.clickSfxOn:
                 app.clickSfx.play()
@@ -479,6 +564,7 @@ def onMousePress(app, mouseX, mouseY):
             app.gameMode = None
             app.gameStarted = False
             app.gameOver = False
+        # Leaderboard screen logic, switches back to on app start variables
         elif 100 <= mouseX <= 300 and 355 <= mouseY <= 400:
             if app.clickSfxOn:
                 app.clickSfx.play()
@@ -489,15 +575,7 @@ def onMousePress(app, mouseX, mouseY):
             app.gameMode = None
             app.gameStarted = False
             app.gameOver = False
-
-        
-
-def cycleBackground(app, currentTime):
-    if currentTime - app.lastBackgroundChangeTime >= app.backgroundChangeInterval:
-        app.currentBackgroundIndex = (app.currentBackgroundIndex + 1) % len(app.backgroundTypes)
-        app.lastBackgroundChangeTime = currentTime
-
-                  
+              
 # Function to handle key press events
 def onKeyPress(app, key):
     # Car lane switches
@@ -510,15 +588,16 @@ def onKeyPress(app, key):
             app.car.moveLeft()
         elif key == 'd':
             app.car.moveRight()
-    if key == 'r':
+    # User has to be playing in order to reset the game
+    if key == 'r' and app.gameOn:
         app.scrollSpeed = 0
         resetGame(app)
-
 
 def redrawAll(app): 
     # Draws game screen based on what is currently true
     if app.showStartMenu:
         drawImage(app.startMenu, 0, 0, width=app.width, height=app.height)
+        drawImage(app.shopButton, 310, 560, width=100, height=100)
     elif app.showHelp:
         drawImage(app.help, 0, 0, width=app.width, height=app.height)
     elif app.showSelectMode:
@@ -528,7 +607,7 @@ def redrawAll(app):
         drawTop5Scores(app)
     elif app.gameScreen:
         currentBackground = app.backgroundTypes[app.currentBackgroundIndex]
-        # Draws grass background, top to bottom, only on the left and right side of the highway
+        # Draws background, top to bottom, only on the left and right side of the highway
         for row in range(-1, app.rows+1):
             y = row * app.grassSize + app.backgroundY
             if currentBackground == 'lightGrass':
@@ -541,35 +620,35 @@ def redrawAll(app):
                 drawImage(app.water, 0, y, width=app.waterSize, height=app.waterSize)
                 drawImage(app.water, 335, y, width=app.waterSize, height=app.waterSize)
 
-
         # Adds sides of the road
         drawRect(65, 0, 15, 600, fill=rgb(191, 191, 191))
         drawRect(320, 0, 15, 600, fill=rgb(191, 191, 191))
         drawRect(60, 0, 5, 600, fill=rgb(242, 242, 242))
         drawRect(335, 0, 5, 600, fill=rgb(242, 242, 242))
-
         # Draws two images of the same highway to display scrolling effect
         drawImage(app.highway, 35, app.highwayY, width=app.highwayWidth, height=600)
         drawImage(app.highway, 35, app.highwayY - 590, width=app.highwayWidth, height=600)
-
         drawImage(app.rail, 81, 300, width=app.railWidth, height=600, align='center')
         drawImage(app.rail, 319, 300, width=app.railWidth, height=600, align='center')
-        
+        # Display countdown text
         if app.countdownActive:
             drawLabel(app.countdownText, 200, 300, size=150, bold=True, fill='white', border='black', borderWidth=4, font='riffic', align='center')
-        
+    
         # Draws player car if it exists
         if app.car:
             app.car.draw()
-        # Draw warnings, obstacles, and explosions
-        for coin in app.coins:
-            coin.draw() 
+        # Draw coins, warnings, obstacles, explosions, and mile sign 
         for warning, _ in app.warnings:
             warning.draw()
         for obstacle, _ in app.obstacles:
             obstacle.draw()
         for explosion in app.explosions:
-            explosion.draw()  
+            explosion.draw() 
+        for coin in app.coins:
+            coin.draw()
+        for sign in app.signs:
+            sign.draw()
+            drawLabel(app.currentMileCount, sign.x, sign.y, size=25, bold=True, fill='white', border='black', borderWidth=1, font='riffic', align='center')
         
         # Draw score and coin counter background/images
         drawRect(0, 0, 80, 50, fill=rgb(232, 230, 107), border='Black', borderWidth=5, opacity=75)
@@ -580,13 +659,14 @@ def redrawAll(app):
         drawLabel('Score', 360, 17, size=22, bold=True, fill='white', border='black', borderWidth=2, font='riffic', align='center')
         drawLabel(rounded(app.currentScoreCount), 360, 50, size=20, bold=True, fill='white', border='black', borderWidth=1, font='riffic', align='center')
 
+        # Draws game over screen once explosion animation ends
         if app.gameOver and not app.explosionActive:
-            # drawRect(200, 125, 350, 80, fill='lightgreen', opacity=90, align='center')
             drawImage(app.gameOverScreen, 200, 350, width=350, height=450, align='center')
-
+ 
+# Functions draws highest scores from top to bottom, fitting in leaderboard screen
 def drawTop5Scores(app):
     for i in range(len(app.top5Scores)):
-        drawLabel(rounded(app.top5Scores[i]), 120, i * 68 + 165, size=45, bold=True, border='black', borderWidth=2, fill='white', font='orbitron' ) 
+        drawLabel(rounded(app.top5Scores[i]), 140, i * 68 + 165, size=45, bold=True, border='black', borderWidth=2, fill='white', font='orbitron' ) 
     
 def main():
     runApp(width=400, height=600)
