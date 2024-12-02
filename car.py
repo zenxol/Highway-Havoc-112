@@ -6,7 +6,7 @@ def loadPilImage(url):
     return Image.open(urlopen(url))
 
 class Car:
-    # Initallys Car class into app object, setting initially centered position and dimensions
+    # Initalizes Car class into app object, setting initially centered position and dimensions
     def __init__(self, app):
         self.app = app
         self.x = app.width // 2
@@ -38,7 +38,7 @@ class Car:
             self.targetLaneIndex = self.laneIndex + 1
             self.isChangingLane = True
             self.laneChangeProgress = 0
-
+    # Function updates car animation when steering
     def update(self):
         if self.isChangingLane:
             self.laneChangeProgress += self.laneChangeSpeed
@@ -55,8 +55,10 @@ class Car:
             self.x = startX + (endX - startX) * ease # Creates easing effect, initially accelerates then deaccelerates
         
     def collidesWith(self, obstacle):
+        # Checks for collision between car and an obstacle
         hitboxX = self.width * 0.2
         hitboxY = self.width * 0.8
+        # Hitbox values are small since distance between obstacle and lane are small 
         return (abs(self.x - obstacle.x) < (hitboxX + obstacle.width) / 2 and 
                 abs(self.y - obstacle.y) < (hitboxY + obstacle.height) / 2)
 
@@ -72,4 +74,34 @@ class RaceCar(Car):
     
     def draw(self):
         drawImage(self.image, self.x, self.y, width=self.width, height=self.height, align='center')
-        
+
+class RaceCarV2(Car):
+    def __init__(self, app):
+        # Class inheritance since RaceCarV2 instance is also a Car instance
+        super().__init__(app)
+        raceCarV2URL = 'https://opengameart.org/sites/default/files/styles/medium/public/pixel_racecar_blue.png'
+        self.image = CMUImage(loadPilImage(raceCarV2URL))
+    
+    def draw(self):
+        # Dimensions change due to different picture size
+        drawImage(self.image, self.x, self.y, width=self.width*1.2, height=self.height, align='center')
+
+class SedanCar(Car):
+    def __init__(self, app):
+        # Class inheritance since SedanCar instance is also a Car instance
+        super().__init__(app)
+        sedanCarURL = 'https://opengameart.org/sites/default/files/car0.png'
+        self.image = CMUImage(loadPilImage(sedanCarURL))
+    
+    def draw(self):
+        drawImage(self.image, self.x, self.y, width=self.width * 0.55, height=self.height * 0.7, align='center')
+    
+class TruckCar(Car):
+    def __init__(self, app):
+        # Class inheritance since TruckCar instance is also a Car instance
+        super().__init__(app)
+        truckCarURL = 'https://opengameart.org/sites/default/files/car-truck2_1.png'
+        self.image = CMUImage(loadPilImage(truckCarURL))
+    
+    def draw(self):
+        drawImage(self.image, self.x, self.y, width=self.width * 0.55, height=self.height * 0.85, align='center')
