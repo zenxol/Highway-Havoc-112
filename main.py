@@ -22,28 +22,42 @@ def onAppStart(app):
     Coin.preloadImages()
     Sign.preloadImages()
     # Image addresses are open to use from opengameart.org
-    lightGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/grass_17.png'
-    darkGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tileable_grass.png'
-    waterURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tex_Water_thumb.jpg'
-    highwayURL = 'https://opengameart.org/sites/default/files/styles/medium/public/Toon%20Road%20Texture.png'
-    railURL = 'https://opengameart.org/sites/default/files/styles/medium/public/Elevator%20Rail_0.png'
-    coinURL = 'https://opengameart.org/sites/default/files/styles/medium/public/coin320000.png'
+    # lightGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/grass_17.png'
+    # darkGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tileable_grass.png'
+    # waterURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tex_Water_thumb.jpg'
+    # highwayURL = 'https://opengameart.org/sites/default/files/styles/medium/public/Toon%20Road%20Texture.png'
+    # railURL = 'https://opengameart.org/sites/default/files/styles/medium/public/Elevator%20Rail_0.png'
+    # coinURL = 'https://opengameart.org/sites/default/files/styles/medium/public/coin320000.png'
 
     # Initally background is set to light grass color, background is cycled every 30ish seconds
-    lightGrass = loadPilImage(lightGrassURL)
-    darkGrass = loadPilImage(darkGrassURL)
-    water = loadPilImage(waterURL)
-    highway = loadPilImage(highwayURL)
+
+    lightGrass = Image.open("images/lightGreenGrass.png")
+    darkGrass = Image.open("images/darkGreenGrass.png")
+    water = Image.open("images/water.jpg")
+    highway = Image.open("images/highway.png")
     # Highway initially imported horizontally, thus rotation is needed
     highway = highway.rotate(90)
-    rail = loadPilImage(railURL)
-    coin = loadPilImage(coinURL)
+    rail = Image.open("images/rail.png")
+    coin = Image.open("images/coin.png")
+
+    racecar = Image.open("images/racecar.png")
+    racecarV2 = Image.open("images/racecarV2.png")
+    sedan = Image.open("images/sedan.png")
+    truck = Image.open("images/truck.png")
+    #s = loadPilImage(coinURL)
     app.lightGrass = CMUImage(lightGrass)
     app.darkGrass = CMUImage(darkGrass)
     app.water = CMUImage(water)
     app.highway = CMUImage(highway)
     app.rail = CMUImage(rail)
     app.baseCoin = CMUImage(coin)
+    
+    app.racecarImage = CMUImage(racecar)
+    app.racecarV2Image = CMUImage(racecarV2)
+    app.sedanImage = CMUImage(sedan)
+    app.truckImage = CMUImage(truck)
+
+
     
     # GrassSize is high, allowing for less images to be generated: increase in frame rates
     app.grassSize = 65
@@ -90,24 +104,34 @@ def onAppStart(app):
     app.lanePositions = [120, app.width // 2, 280]
     
     # Images for different screens
-    startMenuImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\startMenu.png")
+
+    #startMenuUrl = ''
+    #startMenuImage = loadPilImage(startMenuUrl)
+    
+    startMenuImage = Image.open("images/startMenu.png")
     app.showStartMenu = True # Game starts by showing start menu 
     app.startMenu = CMUImage(startMenuImage)
     app.gameMode = None
-    selectModeImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\modeSelection.png")
+    selectModeImage = Image.open("images/modeSelection.png")
     app.showSelectMode = False
     app.selectMode = CMUImage(selectModeImage)
     # if it is a screen, later change name to ...screen for readability
-    gameOverImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\gameOver.png")
+    gameOverImage = Image.open("images/gameOver.png")
     app.gameOverScreen = CMUImage(gameOverImage)
-    helpImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\help.png")
+    helpImage = Image.open("images/help.png")
     app.showHelp = False
     app.help = CMUImage(helpImage)
-    leaderboardImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\leaderboard.png")
+    leaderboardImage = Image.open("images/leaderboard.png")
     app.showLeaderboard = False
     app.leaderboard = CMUImage(leaderboardImage)
-    shopButtonImage = Image.open(r"C:\Users\zenho\OneDrive\Desktop\TERM PROJECT\shopButton.png")
+    shopButtonImage = Image.open("images/shopButton.png")
     app.shopButton = CMUImage(shopButtonImage) # shopButton is always shown with start menu
+    shopMenuImage = Image.open("images/shopMenu.png")
+    app.showShop = False
+    app.shopMenu = CMUImage(shopMenuImage)
+
+    
+
 
     # Variable to prevent unintended clicks
     app.lastClickTime = 0
@@ -118,6 +142,7 @@ def onAppStart(app):
     soundtrack = 'https://opengameart.org/sites/default/files/race.mp3'
     app.soundtrack = Sound(soundtrack)
     app.soundtrack.play(loop=True) # Initially plays soundtrack when app starts
+    # setVolume()
     clickSfx = 'https://opengameart.org/sites/default/files/Toom%20Click.wav'
     app.clickSfx = Sound(clickSfx)  
     coinSfx = 'https://opengameart.org/sites/default/files/Picked%20Coin%20Echo.wav' 
@@ -156,6 +181,13 @@ def onAppStart(app):
 
     # Stores highest 5 scores in the leaderboard
     app.top5Scores = []
+
+    app.carList = [RaceCar(app), RaceCarV2(app), SedanCar(app), TruckCar(app)]
+    app.carListIndex = 0
+    app.showCar0 = False
+    app.showCar1 = False
+    app.showCar2 = False
+    app.showCar3 = False
     
 def resetGame(app):
     # Resets game factors to default parameters
@@ -169,7 +201,7 @@ def resetGame(app):
     app.signs.clear()
 
     # Creates car object, will change later to where user can choose what car to select
-    app.car = RaceCar(app)
+    app.car = app.carList[app.carListIndex]
 
     # Resets up game state variables
     app.gameScreen = True
@@ -202,6 +234,9 @@ def resetGame(app):
 
 # Function called on each step of the game
 def onStep(app):
+    if app.showShop:
+        pass
+
     currentTime = time.time()
 
     # Show countdown before objects can spawn/move
@@ -404,7 +439,7 @@ def checkOverlap(new, existing):
 def updateCoins(app, currentTime):
     # Create initial delay, similar to obstacle delay
     if currentTime - app.gameStartTime < app.coinDelay:
-        return
+        return    
     if app.gameOn:
         newCoins = [] 
         for coin in app.coins:
@@ -495,6 +530,11 @@ def onMousePress(app, mouseX, mouseY):
             app.showStartMenu = False
             # Changes screen to leaderboard screen
             app.showLeaderboard = True
+        elif 310 <= mouseX <= 400 and 530 <= mouseY <= 600:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.showStartMenu = False
+            app.showShop = True
         # Toggles music / sound effect off and on
         elif 310 <= mouseX <= 355 and 235 <= mouseY <= 290:
             app.soundtrackOn = not app.soundtrackOn
@@ -546,6 +586,16 @@ def onMousePress(app, mouseX, mouseY):
             app.showSelectMode = False
             app.gameMode = 'Hard'
             resetGame(app)  
+    elif app.showShop:
+        if 300 <= mouseX <= 400 and 520 <= mouseY <= 600:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.showShop = False
+            # Switches back to start menu
+            app.showStartMenu = True
+
+
+
     # Game over screen logic
     elif app.gameOver:
         # Restart button logic
@@ -592,6 +642,22 @@ def onKeyPress(app, key):
     if key == 'r' and app.gameOn:
         app.scrollSpeed = 0
         resetGame(app)
+    if key == '0' and app.showShop:
+        app.showCar3 = app.showCar1 = app.showCar2 = False
+        app.showCar0 = True
+        app.carListIndex = 0
+    elif key == '1' and app.showShop:
+        app.showCar0 = app.showCar3 = app.showCar2 = False
+        app.showCar1 = True
+        app.carListIndex = 1
+    elif key == '2' and app.showShop:
+        app.showCar0 = app.showCar1 = app.showCar3 = False
+        app.showCar2 = True
+        app.carListIndex = 2
+    elif key == '3' and app.showShop:
+        app.showCar0 = app.showCar1 = app.showCar2 = False
+        app.showCar3 = True
+        app.carListIndex = 3
 
 def redrawAll(app): 
     # Draws game screen based on what is currently true
@@ -605,6 +671,17 @@ def redrawAll(app):
     elif app.showLeaderboard:
         drawImage(app.leaderboard, 0, 0, width=app.width, height=app.height)
         drawTop5Scores(app)
+    elif app.showShop:
+        drawImage(app.shopMenu, 0, 0, width=app.width, height=app.height)
+        if app.showCar0:
+            drawImage(app.racecarImage, 200, 200, width=app.carWidth, height=app.carHeight)
+        elif app.showCar1:
+            drawImage(app.racecarV2Image, 200, 200, width=app.carWidth, height=app.carHeight)
+        elif app.showCar2:
+            drawImage(app.sedanImage, 200, 200, width=app.carWidth, height=app.carHeight)
+        elif app.showCar3:
+            drawImage(app.truckImage, 200, 200, width=app.carWidth, height=app.carHeight)
+        # drawImage(app.car, 200, 200, width=app.carWidth, height=app.carHeight)
     elif app.gameScreen:
         currentBackground = app.backgroundTypes[app.currentBackgroundIndex]
         # Draws background, top to bottom, only on the left and right side of the highway
