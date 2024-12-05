@@ -1,6 +1,6 @@
 from cmu_graphics import*
 from PIL import Image
-from urllib.request import urlopen
+import os, pathlib
 from car import Car, RaceCar, RaceCarV2, SedanCar, TruckCar
 import time
 import random
@@ -11,16 +11,15 @@ from coin import Coin
 from mile import Sign
 
 
-def loadPilImage(url):
-    return Image.open(urlopen(url))
+def loadSound(relativePath):
+    # Convert to absolute path (because pathlib.Path only takes absolute paths)
+    absolutePath = os.path.abspath(relativePath)
+    # Get local file URL
+    url = pathlib.Path(absolutePath).as_uri()
+    # Load Sound file from local URL
+    return Sound(url)
 
 def onAppStart(app):
-    # Preload images in order to prevent lag from importing image Urls
-    Obstacle.preloadImages()
-    Explosion.preloadImages()
-    Warning.preloadImages()
-    Coin.preloadImages()
-    Sign.preloadImages()
     # Image addresses are open to use from opengameart.org
     # lightGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/grass_17.png'
     # darkGrassURL = 'https://opengameart.org/sites/default/files/styles/medium/public/tileable_grass.png'
@@ -104,10 +103,6 @@ def onAppStart(app):
     app.lanePositions = [120, app.width // 2, 280]
     
     # Images for different screens
-
-    #startMenuUrl = ''
-    #startMenuImage = loadPilImage(startMenuUrl)
-    
     startMenuImage = Image.open("images/startMenu.png")
     app.showStartMenu = True # Game starts by showing start menu 
     app.startMenu = CMUImage(startMenuImage)
@@ -130,6 +125,11 @@ def onAppStart(app):
     app.showShop = False
     app.shopMenu = CMUImage(shopMenuImage)
 
+    buyButtonImage = Image.open("images/buy.png")
+    app.buyButton = CMUImage(buyButtonImage)
+    equipButtonImage = Image.open("images/equip.png")
+    app.equipButton = CMUImage(equipButtonImage)
+
     
 
 
@@ -137,22 +137,21 @@ def onAppStart(app):
     app.lastClickTime = 0
 
     # Background music and sound effects
-    app.clickSfxOn = True
+   
     app.soundtrackOn = True
-    soundtrack = 'https://opengameart.org/sites/default/files/race.mp3'
-    app.soundtrack = Sound(soundtrack)
+    app.soundtrack = loadSound("sound/soundtrack.mp3")
     app.soundtrack.play(loop=True) # Initially plays soundtrack when app starts
     # setVolume()
-    clickSfx = 'https://opengameart.org/sites/default/files/Toom%20Click.wav'
-    app.clickSfx = Sound(clickSfx)  
-    coinSfx = 'https://opengameart.org/sites/default/files/Picked%20Coin%20Echo.wav' 
-    app.coinSfx = Sound(coinSfx) 
-    explosionSfx = 'https://opengameart.org/sites/default/files/DeathFlash.flac'
-    app.explosionSfx = Sound(explosionSfx)
-    countdownSfx = 'https://opengameart.org/sites/default/files/3%202%201%20go_noise-removal_equalized.wav'
-    app.countdownSfx = Sound(countdownSfx)
-    engineSfx = 'file:///C:/Users/zenho/Downloads/engine.mp3'
-    app.engineSfx = Sound(engineSfx) # Fix engine sfx, after resetting loop, it temporarily cuts off 
+    app.clickSfxOn = True
+    app.clickSfx = loadSound("sound/click.wav")
+
+    app.coinSfx = loadSound("sound/pickedCoin.wav")
+    
+    app.explosionSfx = loadSound("sound/explosion.mp3")
+
+    app.countdownSfx = loadSound("sound/countdown.wav")
+
+    app.engineSfx = loadSound("sound/engine-loop-1.wav") 
 
     # Initiates variables that dynamically changes game difficulty as game progresses
     app.difficultyFactor = 1
@@ -184,11 +183,19 @@ def onAppStart(app):
 
     app.carList = [RaceCar(app), RaceCarV2(app), SedanCar(app), TruckCar(app)]
     app.carListIndex = 0
-    app.showCar0 = False
-    app.showCar1 = False
-    app.showCar2 = False
-    app.showCar3 = False
-    
+    app.equippedCarIndex = 0
+
+    app.carImages = [app.racecarImage, app.racecarV2Image, app.sedanImage, app.truckImage]
+    app.totalCoins = 0
+
+    app.carNames = ['RaceCar', 'RaceCarV2', 'Sedan', 'Truck']
+    app.carData = {
+        'RaceCar': {"price": 0, 'owned': True},
+        'RaceCarV2': {"price": 1, 'owned': False},
+        'Sedan': {"price": 2, 'owned': False},
+        'Truck': {"price": 3, 'owned': False}
+    }
+
 def resetGame(app):
     # Resets game factors to default parameters
     app.scrollSpeed = 5
@@ -201,9 +208,10 @@ def resetGame(app):
     app.signs.clear()
 
     # Creates car object, will change later to where user can choose what car to select
-    app.car = app.carList[app.carListIndex]
+    app.car = app.carList[app.equippedCarIndex]
 
     # Resets up game state variables
+    app.car.x = app.width // 2
     app.gameScreen = True
     app.explosionActive = True
     app.gameStarted = False
@@ -234,8 +242,6 @@ def resetGame(app):
 
 # Function called on each step of the game
 def onStep(app):
-    if app.showShop:
-        pass
 
     currentTime = time.time()
 
@@ -264,6 +270,8 @@ def onStep(app):
     updateCoins(app, currentTime)
     updateScore(app)
     updateMileSign(app)
+
+
 
 # Function creates a countdown effect, notifying the user when they can steer their car
 def handleCountdown(app, currentTime):
@@ -449,6 +457,7 @@ def updateCoins(app, currentTime):
                     app.coinSfx.play()
                     # Increases coin count each time coin is collected
                     app.currentCoinCount += 1
+                    app.totalCoins += 1
                 else:
                     newCoins.append(coin)
         app.coins = newCoins
@@ -587,6 +596,29 @@ def onMousePress(app, mouseX, mouseY):
             app.gameMode = 'Hard'
             resetGame(app)  
     elif app.showShop:
+        if 265 <= mouseX < 300 and 280 <= mouseY <= 330:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.carListIndex = (app.carListIndex + 1) % len(app.carList)
+        elif 100 <= mouseX < 135 and 280 <= mouseY <= 330:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            app.carListIndex = (app.carListIndex - 1) % len(app.carList)
+        
+        elif 170 <= mouseX <= 230 and  385 <= mouseY <= 410:
+            if app.clickSfxOn:
+                app.clickSfx.play()
+            carName = app.carNames[app.carListIndex]
+            carInfo = app.carData[carName]
+
+            if not carInfo['owned']:
+                if app.totalCoins >= carInfo['price']:
+                    app.totalCoins -= carInfo['price']
+                    carInfo['owned'] = True
+                
+            elif carInfo['owned'] and app.carListIndex != app.equippedCarIndex:
+                app.equippedCarIndex = app.carListIndex
+
         if 300 <= mouseX <= 400 and 520 <= mouseY <= 600:
             if app.clickSfxOn:
                 app.clickSfx.play()
@@ -628,6 +660,11 @@ def onMousePress(app, mouseX, mouseY):
               
 # Function to handle key press events
 def onKeyPress(app, key):
+    if app.showShop:
+        if key == 'f':
+            app.carListIndex = (app.carListIndex + 1) % len(app.carList)
+        elif key == 'd':
+            app.carListIndex = (app.carListIndex - 1) % len(app.carList)
     # Car lane switches
     if app.car != None:
         if key == 'left':
@@ -638,26 +675,10 @@ def onKeyPress(app, key):
             app.car.moveLeft()
         elif key == 'd':
             app.car.moveRight()
-    # User has to be playing in order to reset the game
-    if key == 'r' and app.gameOn:
-        app.scrollSpeed = 0
-        resetGame(app)
-    if key == '0' and app.showShop:
-        app.showCar3 = app.showCar1 = app.showCar2 = False
-        app.showCar0 = True
-        app.carListIndex = 0
-    elif key == '1' and app.showShop:
-        app.showCar0 = app.showCar3 = app.showCar2 = False
-        app.showCar1 = True
-        app.carListIndex = 1
-    elif key == '2' and app.showShop:
-        app.showCar0 = app.showCar1 = app.showCar3 = False
-        app.showCar2 = True
-        app.carListIndex = 2
-    elif key == '3' and app.showShop:
-        app.showCar0 = app.showCar1 = app.showCar2 = False
-        app.showCar3 = True
-        app.carListIndex = 3
+        # User has to be playing in order to reset the game
+        if key == 'r' and app.gameOn:
+            app.scrollSpeed = 0
+            resetGame(app)
 
 def redrawAll(app): 
     # Draws game screen based on what is currently true
@@ -673,41 +694,70 @@ def redrawAll(app):
         drawTop5Scores(app)
     elif app.showShop:
         drawImage(app.shopMenu, 0, 0, width=app.width, height=app.height)
-        if app.showCar0:
-            drawImage(app.racecarImage, 200, 200, width=app.carWidth, height=app.carHeight)
-        elif app.showCar1:
-            drawImage(app.racecarV2Image, 200, 200, width=app.carWidth, height=app.carHeight)
-        elif app.showCar2:
-            drawImage(app.sedanImage, 200, 200, width=app.carWidth, height=app.carHeight)
-        elif app.showCar3:
-            drawImage(app.truckImage, 200, 200, width=app.carWidth, height=app.carHeight)
-        # drawImage(app.car, 200, 200, width=app.carWidth, height=app.carHeight)
+        drawShopCar(app)
+        drawLabel(app.totalCoins, 230, 550, size=45, bold=True, border='black', borderWidth=2, fill='white', font='orbitron')
+        
     elif app.gameScreen:
-        currentBackground = app.backgroundTypes[app.currentBackgroundIndex]
-        # Draws background, top to bottom, only on the left and right side of the highway
-        for row in range(-1, app.rows+1):
-            y = row * app.grassSize + app.backgroundY
-            if currentBackground == 'lightGrass':
-                drawImage(app.lightGrass, 0, y, width=app.grassSize, height=app.grassSize)
-                drawImage(app.lightGrass, 335, y, width=app.grassSize, height=app.grassSize)
-            elif currentBackground == 'darkGrass':
-                drawImage(app.darkGrass, 0, y, width=app.grassSize, height=app.grassSize)
-                drawImage(app.darkGrass, 335, y, width=app.grassSize, height=app.grassSize)
-            else:
-                drawImage(app.water, 0, y, width=app.waterSize, height=app.waterSize)
-                drawImage(app.water, 335, y, width=app.waterSize, height=app.waterSize)
+        drawBackground(app)
+        drawEntities(app)
+        drawCounters(app)
+# Functions draws highest scores from top to bottom, fitting in leaderboard screen
+def drawTop5Scores(app):
+    for i in range(len(app.top5Scores)):
+        drawLabel(rounded(app.top5Scores[i]), 140, i * 68 + 165, size=45, bold=True, border='black', borderWidth=2, fill='white', font='orbitron' ) 
+    
+def drawShopCar(app):
+    carImage = app.carImages[app.carListIndex]
+    width, height = app.carWidth, app.carHeight
+    
+    if app.carListIndex == 1:  
+        width *= 1.2
+    elif app.carListIndex in (2, 3):  
+        width *= 0.55
+        height *= 0.7 if app.carListIndex == 2 else 0.85
+    
+    carName = app.carNames[app.carListIndex]
+    carInfo = app.carData[carName]
+    drawImage(carImage, 200, 300, width=width, height=height, align='center') 
 
-        # Adds sides of the road
-        drawRect(65, 0, 15, 600, fill=rgb(191, 191, 191))
-        drawRect(320, 0, 15, 600, fill=rgb(191, 191, 191))
-        drawRect(60, 0, 5, 600, fill=rgb(242, 242, 242))
-        drawRect(335, 0, 5, 600, fill=rgb(242, 242, 242))
-        # Draws two images of the same highway to display scrolling effect
-        drawImage(app.highway, 35, app.highwayY, width=app.highwayWidth, height=600)
-        drawImage(app.highway, 35, app.highwayY - 590, width=app.highwayWidth, height=600)
-        drawImage(app.rail, 81, 300, width=app.railWidth, height=600, align='center')
-        drawImage(app.rail, 319, 300, width=app.railWidth, height=600, align='center')
-        # Display countdown text
+    if carInfo['owned']:
+        drawLabel('OWNED', 200, 230, size=20, bold=True, fill='pink', border='black', borderWidth=1)
+        if app.carListIndex == app.equippedCarIndex:
+            drawLabel('SET', 200, 370, size=20, bold=True, fill='green', border='black', borderWidth=1)
+        else:
+            drawImage(app.equipButton, 200, 400, width=100, height=50, align='center')
+    else:
+        drawLabel(f"Cost: {carInfo['price']} coins", 200, 370, size=20, bold=True, fill='white')
+        drawImage(app.buyButton, 200, 400, width=100, height=50, align='center')
+
+def drawBackground(app):
+    currentBackground = app.backgroundTypes[app.currentBackgroundIndex]
+    # Draws background, top to bottom, only on the left and right side of the highway
+    for row in range(-1, app.rows+1):
+        y = row * app.grassSize + app.backgroundY
+        if currentBackground == 'lightGrass':
+            drawImage(app.lightGrass, 0, y, width=app.grassSize, height=app.grassSize)
+            drawImage(app.lightGrass, 335, y, width=app.grassSize, height=app.grassSize)
+        elif currentBackground == 'darkGrass':
+            drawImage(app.darkGrass, 0, y, width=app.grassSize, height=app.grassSize)
+            drawImage(app.darkGrass, 335, y, width=app.grassSize, height=app.grassSize)
+        else:
+            drawImage(app.water, 0, y, width=app.waterSize, height=app.waterSize)
+            drawImage(app.water, 335, y, width=app.waterSize, height=app.waterSize)
+
+    # Adds sides of the road
+    drawRect(65, 0, 15, 600, fill=rgb(191, 191, 191))
+    drawRect(320, 0, 15, 600, fill=rgb(191, 191, 191))
+    drawRect(60, 0, 5, 600, fill=rgb(242, 242, 242))
+    drawRect(335, 0, 5, 600, fill=rgb(242, 242, 242))
+    # Draws two images of the same highway to display scrolling effect
+    drawImage(app.highway, 35, app.highwayY, width=app.highwayWidth, height=600)
+    drawImage(app.highway, 35, app.highwayY - 590, width=app.highwayWidth, height=600)
+    drawImage(app.rail, 81, 300, width=app.railWidth, height=600, align='center')
+    drawImage(app.rail, 319, 300, width=app.railWidth, height=600, align='center')
+
+def drawEntities(app):
+            # Display countdown text
         if app.countdownActive:
             drawLabel(app.countdownText, 200, 300, size=150, bold=True, fill='white', border='black', borderWidth=4, font='riffic', align='center')
     
@@ -726,25 +776,21 @@ def redrawAll(app):
         for sign in app.signs:
             sign.draw()
             drawLabel(app.currentMileCount, sign.x, sign.y, size=25, bold=True, fill='white', border='black', borderWidth=1, font='riffic', align='center')
-        
-        # Draw score and coin counter background/images
-        drawRect(0, 0, 80, 50, fill=rgb(232, 230, 107), border='Black', borderWidth=5, opacity=75)
-        drawImage(app.baseCoin, 20, 25, width=25, height=25, align='center')
-        drawLabel(f'{app.currentCoinCount}', 65, 25, size=35, bold=True, fill='white', border='black', borderWidth=2, font='riffic')
-
-        drawRect(320, 0, 80, 100, fill=rgb(232, 230, 107), border='Black', borderWidth=5, opacity=75)
-        drawLabel('Score', 360, 17, size=22, bold=True, fill='white', border='black', borderWidth=2, font='riffic', align='center')
-        drawLabel(rounded(app.currentScoreCount), 360, 50, size=20, bold=True, fill='white', border='black', borderWidth=1, font='riffic', align='center')
 
         # Draws game over screen once explosion animation ends
         if app.gameOver and not app.explosionActive:
             drawImage(app.gameOverScreen, 200, 350, width=350, height=450, align='center')
+
+def drawCounters(app):
+    # Draw score and coin counter background/images
+    drawRect(0, 0, 80, 50, fill=rgb(232, 230, 107), border='Black', borderWidth=5, opacity=75)
+    drawImage(app.baseCoin, 20, 25, width=25, height=25, align='center')
+    drawLabel(f'{app.currentCoinCount}', 55, 25, size=35, bold=True, fill='white', border='black', borderWidth=2, font='riffic')
+
+    drawRect(320, 0, 80, 100, fill=rgb(232, 230, 107), border='Black', borderWidth=5, opacity=75)
+    drawLabel('Score', 360, 17, size=22, bold=True, fill='white', border='black', borderWidth=2, font='riffic', align='center')
+    drawLabel(rounded(app.currentScoreCount), 360, 50, size=20, bold=True, fill='white', border='black', borderWidth=1, font='riffic', align='center')
  
-# Functions draws highest scores from top to bottom, fitting in leaderboard screen
-def drawTop5Scores(app):
-    for i in range(len(app.top5Scores)):
-        drawLabel(rounded(app.top5Scores[i]), 140, i * 68 + 165, size=45, bold=True, border='black', borderWidth=2, fill='white', font='orbitron' ) 
-    
 def main():
     runApp(width=400, height=600)
 main()
