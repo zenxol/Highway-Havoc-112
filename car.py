@@ -1,9 +1,6 @@
 from cmu_graphics import*
 from PIL import Image
-from urllib.request import urlopen
 
-def loadPilImage(url):
-    return Image.open(urlopen(url))
 
 class Car:
     # Initalizes Car class into app object, setting initially centered position and dimensions
@@ -69,8 +66,7 @@ class RaceCar(Car):
     def __init__(self, app):
         # Class inheritance since RaceCar instance is also a Car instance
         super().__init__(app)
-        raceCarURL = 'https://opengameart.org/sites/default/files/styles/medium/public/RacingCar-1.png.png'
-        self.image = CMUImage(loadPilImage(raceCarURL))
+        self.image = CMUImage(Image.open("images/racecar.png"))
     
     def draw(self):
         drawImage(self.image, self.x, self.y, width=self.width, height=self.height, align='center')
@@ -79,8 +75,7 @@ class RaceCarV2(Car):
     def __init__(self, app):
         # Class inheritance since RaceCarV2 instance is also a Car instance
         super().__init__(app)
-        raceCarV2URL = 'https://opengameart.org/sites/default/files/styles/medium/public/pixel_racecar_blue.png'
-        self.image = CMUImage(loadPilImage(raceCarV2URL))
+        self.image = CMUImage(Image.open("images/racecarV2.png"))
     
     def draw(self):
         # Dimensions change due to different picture size
@@ -90,8 +85,7 @@ class SedanCar(Car):
     def __init__(self, app):
         # Class inheritance since SedanCar instance is also a Car instance
         super().__init__(app)
-        sedanCarURL = 'https://opengameart.org/sites/default/files/car0.png'
-        self.image = CMUImage(loadPilImage(sedanCarURL))
+        self.image = CMUImage(Image.open("images/sedan.png"))
     
     def draw(self):
         drawImage(self.image, self.x, self.y, width=self.width * 0.55, height=self.height * 0.7, align='center')
@@ -100,8 +94,7 @@ class TruckCar(Car):
     def __init__(self, app):
         # Class inheritance since TruckCar instance is also a Car instance
         super().__init__(app)
-        truckCarURL = 'https://opengameart.org/sites/default/files/car-truck2_1.png'
-        self.image = CMUImage(loadPilImage(truckCarURL))
+        self.image = CMUImage(Image.open("images/truck.png"))
     
     def draw(self):
         drawImage(self.image, self.x, self.y, width=self.width * 0.55, height=self.height * 0.85, align='center')
