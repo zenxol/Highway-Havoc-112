@@ -1,19 +1,7 @@
 from cmu_graphics import*
 from PIL import Image
-from urllib.request import urlopen
-
-def loadPilImage(url):
-    return Image.open(urlopen(url))
 
 class Explosion:
-    image = None
-    # Utilized perplexity.ai to set up preloadImages to reduce lag when spawning obstacle images, in preloadImages function
-    @classmethod
-    def preloadImages(cls):
-        if cls.image == None:
-            explosionUrl = 'https://opengameart.org/sites/default/files/styles/medium/public/explosion2_1.png'
-            pil_image = loadPilImage(explosionUrl)
-            cls.image = CMUImage(pil_image)
 
     def __init__(self, x, y):
         # Initialize explosion properties
@@ -29,7 +17,7 @@ class Explosion:
         # Creates state of explosion and if it is currently occuring
         self.isActive = True
         self.state = 'growing'
-        Explosion.preloadImages()
+        self.image = CMUImage(Image.open("images/explosion.png"))
         
     def update(self):
         # Updates explosion's size and opacity 
