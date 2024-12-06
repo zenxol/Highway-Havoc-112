@@ -3,16 +3,16 @@ from PIL import Image
 import time
 
 class Warning:
-
+    # Initialize warning properties
     def __init__(self, x, y):
-        # Initialize warning properties
         self.x = x
         self.y = y
         self.visible = True
-        self.flashInterval = 0.1 # Time between flashes in
+        self.flashInterval = 0.1 # Time in seconds in between flashes
         self.lastFlash = time.time()
         self.size = 70 
         self.image = CMUImage(Image.open("images/warning.png"))
+        # https://opengameart.org/content/warning-sign
 
     def update(self):
         # Update the visibility of the warning to create a flashing effect 
