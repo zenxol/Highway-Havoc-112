@@ -13,14 +13,16 @@ class Explosion:
         self.maxSize = 300
         self.maxOpacity = 100
         self.growthRate = 20
+        # fadeRate is how fast the opacity decreases
         self.fadeRate = 2
         # Creates state of explosion and if it is currently occuring
         self.isActive = True
         self.state = 'growing'
         self.image = CMUImage(Image.open("images/explosion.png"))
-        
+        # https://opengameart.org/content/fiery-explosion
+
+    # Updates explosion's size and opacity 
     def update(self):
-        # Updates explosion's size and opacity 
         if not self.isActive:
             return
         if self.state == 'growing':
@@ -37,7 +39,7 @@ class Explosion:
                 self.isActive = False
     
     def draw(self):
-        drawImage(Explosion.image, self.x, self.y, width=self.size, height=self.size, opacity=self.opacity, align='center')
+        drawImage(self.image, self.x, self.y, width=self.size, height=self.size, opacity=self.opacity, align='center')
         
         
 
