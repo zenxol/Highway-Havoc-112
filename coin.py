@@ -1,10 +1,9 @@
 from cmu_graphics import*
 from PIL import Image
 
-
 class Coin:
 
-    # Initializes object paraments of coin object
+    # Initializes constructor parameters of coin object
     def __init__(self, app, x, y):
         self.app = app
         self.x = x
@@ -13,6 +12,7 @@ class Coin:
         self.height = 30
         self.speed = 5
         self.image = CMUImage(Image.open("images/coin.png"))
+        # https://opengameart.org/content/coins-asset
 
     # Coin moves similar to obstacles
     def move(self):
