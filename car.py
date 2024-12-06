@@ -1,7 +1,6 @@
 from cmu_graphics import*
 from PIL import Image
 
-
 class Car:
     # Initalizes Car class into app object, setting initially centered position and dimensions
     def __init__(self, app):
@@ -16,11 +15,17 @@ class Car:
         self.laneIndex = 1
         self.x = self.lanePositions[self.laneIndex]
 
-        # Initializes defauly car lane change variables, may adjust once more Car subclasses are createed
+        # Initializes default car lane change variables
         self.targetLaneIndex = self.laneIndex
         self.isChangingLane = False
         self.laneChangeProgress = 0
         self.laneChangeSpeed = 0.20
+
+        # Initializes boosting variables. Car should boost at a maximum 125 pixels up
+        self.boosting = False
+        self.boostProgress = 0
+        self.boostSpeed = 0.1
+        self.boostDistance = 125
 
     def moveLeft(self):
         # Bounds car from moving off highway, toggles changingLane behaviour
@@ -35,7 +40,13 @@ class Car:
             self.targetLaneIndex = self.laneIndex + 1
             self.isChangingLane = True
             self.laneChangeProgress = 0
-    # Function updates car animation when steering
+    
+    def boost(self):
+        # Calls boosting as true
+        if not self.boosting:
+            self.boosting = True 
+            self.boostProgress = 0
+    # Function updates car animation when steering and boosting
     def update(self):
         if self.isChangingLane:
             self.laneChangeProgress += self.laneChangeSpeed
@@ -51,6 +62,21 @@ class Car:
             endX = self.lanePositions[self.targetLaneIndex]
             self.x = startX + (endX - startX) * ease # Creates easing effect, initially accelerates then deaccelerates
         
+        if self.boosting:
+            # Self.boostSpeed is small because app steps per second is high
+            self.boostProgress += self.boostSpeed
+            if self.boostProgress <= 1:
+                # Limit the boost to 125 pixels up
+                # Math formula is generated with perplexity.ai
+                boostAmount = min(125 * (1 - (self.boostProgress - 0.5)**2), 125)
+                self.y = max(self.app.height - self.app.carHeight - 10 - boostAmount, 
+                         self.app.height - self.app.carHeight - 135)
+            else:
+                # Return back to original y posiiton and inactive boost condiitons once boost is over
+                self.y = self.app.height - self.app.carHeight - 10
+                self.boosting = False
+                self.boostProgress = 0
+
     def collidesWith(self, obstacle):
         # Checks for collision between car and an obstacle
         hitboxX = self.width * 0.2
@@ -67,6 +93,7 @@ class RaceCar(Car):
         # Class inheritance since RaceCar instance is also a Car instance
         super().__init__(app)
         self.image = CMUImage(Image.open("images/racecar.png"))
+        # https://opengameart.org/content/racing-car-0
     
     def draw(self):
         drawImage(self.image, self.x, self.y, width=self.width, height=self.height, align='center')
@@ -76,6 +103,7 @@ class RaceCarV2(Car):
         # Class inheritance since RaceCarV2 instance is also a Car instance
         super().__init__(app)
         self.image = CMUImage(Image.open("images/racecarV2.png"))
+        # https://opengameart.org/content/pixel-race-car-pack
     
     def draw(self):
         # Dimensions change due to different picture size
@@ -86,6 +114,7 @@ class SedanCar(Car):
         # Class inheritance since SedanCar instance is also a Car instance
         super().__init__(app)
         self.image = CMUImage(Image.open("images/sedan.png"))
+        # https://opengameart.org/content/top-view-car-truck-sprites
     
     def draw(self):
         drawImage(self.image, self.x, self.y, width=self.width * 0.55, height=self.height * 0.7, align='center')
@@ -95,6 +124,7 @@ class TruckCar(Car):
         # Class inheritance since TruckCar instance is also a Car instance
         super().__init__(app)
         self.image = CMUImage(Image.open("images/truck.png"))
+        # https://opengameart.org/content/top-view-car-truck-sprites
     
     def draw(self):
         drawImage(self.image, self.x, self.y, width=self.width * 0.55, height=self.height * 0.85, align='center')
